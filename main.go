@@ -16,6 +16,7 @@ import (
 	"github.com/ochinchina/supervisord/config"
 	"github.com/ochinchina/supervisord/logger"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sys/windows/svc"
 )
 
 var BuildVersion string = ""
@@ -167,6 +168,19 @@ func getSupervisordLogFile(configFile string) string {
 func main() {
 	if BuildVersion != "" { VERSION = BuildVersion }
 	ReapZombie()
+
+	// Check if running as Windows service
+	if runtime.GOOS == "windows" {
+		isIntSess, err := svc.IsAnInteractiveSession()
+		if err == nil && !isIntSess {
+			// Running as Windows service - start service handler
+			err = svc.Run("go-supervisord", &supervisordService{})
+			if err != nil {
+				log.Error("Failed to run as Windows service: ", err)
+			}
+			return
+		}
+	}
 
 	// when execute `supervisord` without sub-command, it should start the server
 	parser.Command.SubcommandsOptional = true
